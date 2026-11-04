@@ -3,18 +3,16 @@ import { useEffect, useRef, type RefObject } from 'react';
 // Defines the W3C recommendation for elements that naturally or explicitly participate 
 // in sequential keyboard navigation (tab order)
 const FOCUSABLE_SELECTOR = [
-  'a[href]',
-  'area[href]',
-  'input:not([disabled]):not([type="hidden"])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
-  'button:not([disabled])',
-  'iframe',
-  'object',
-  'embed',
-  '[contenteditable]',
-  '[tabindex]:not([tabindex^="-"])',
-].join(', ');
+  'a[href]:not([tabindex="-1"])',
+  'area[href]:not([tabindex="-1"])',
+  'input:not([disabled]):not([type="hidden"]):not([tabindex="-1"])',
+  'select:not([disabled]):not([tabindex="-1"])',
+  'textarea:not([disabled]):not([tabindex="-1"])',
+  'button:not([disabled]):not([tabindex="-1"])',
+  'iframe:not([tabindex="-1"])',
+  '[tabindex]:not([tabindex="-1"])',
+  '[contentEditable=true]:not([tabindex="-1"])',
+].join( ', ' );
 
 /**
  * Validates element is actually rendered and not hidden via CSS.
@@ -43,7 +41,8 @@ export function useFocusTrap<T extends HTMLElement>(
     if (!isOpen || !containerRef.current) return;
 
     const container = containerRef.current;
-
+    if ( !container ) return;
+    
     // Collect visible, non-disabled interactive targets
     const getFocusables = (): HTMLElement[] => {
       return Array.from(
@@ -66,6 +65,7 @@ export function useFocusTrap<T extends HTMLElement>(
 
       const currentFocusables = getFocusables();
 
+      // If the modal has no interactive elements, prevent tabbing anywhere
       if (currentFocusables.length === 0) {
         event.preventDefault();
         container.focus();
@@ -78,13 +78,13 @@ export function useFocusTrap<T extends HTMLElement>(
 
       if (event.shiftKey) {
         // Shift + Tab: Wrap from first element to last
-        if (activeElement === firstElement || !container.contains(activeElement)) {
+        if (activeElement === firstElement || activeElement === container || !container.contains(activeElement)) {
           event.preventDefault();
           lastElement.focus();
         }
       } else {
         // Tab: Wrap from last element to first
-        if (activeElement === lastElement || !container.contains(activeElement)) {
+        if (activeElement === lastElement || activeElement === container || !container.contains(activeElement)) {
           event.preventDefault();
           firstElement.focus();
         }
