@@ -1,4 +1,4 @@
-import React, { useEffect, useId } from "react";
+import React, { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useFocusReturn } from "../../hooks/useFocusReturn";
@@ -18,7 +18,9 @@ export const Modal: React.FC<ModalProps> = ({
 }: ModalProps) => {
   const generatedTitleId = useId();
   const generatedDescId = useId();
-
+  // Track whether the initial pointer down started directly on the backdrop
+  const isMouseDownOnBackdrop = useRef( false );
+  
   // Resolve provided explicit IDs vs auto-generated IDs
   const effectiveTitleId =
     explicitLabelledBy || (title ? generatedTitleId : undefined);
@@ -44,17 +46,26 @@ export const Modal: React.FC<ModalProps> = ({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
+  const handleBackdropMouseDown = ( e: React.MouseEvent<HTMLDivElement> ) => {
+    // Only flag true if the target is the backdrop container itself
+    isMouseDownOnBackdrop.current = e.target === e.currentTarget;
+  };
+
+  const handleBackdropMouseUp = ( e: React.MouseEvent<HTMLDivElement> ) => {
+    // Dismiss only if BOTH mouseDown and mouseUp occurred directly on the backdrop
+    if (isMouseDownOnBackdrop.current && e.target === e.currentTarget) {
+      onClose();
+    }
+    isMouseDownOnBackdrop.current = false;
+  };
+
   if (!isOpen) return null;
 
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      onClick={(e) => {
-        // Dismiss only when clicking direct backdrop, not inner card
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
+      onMouseDown={ handleBackdropMouseDown }
+      onMouseUp={handleBackdropMouseUp}
     >
       <div
         ref={containerRef as React.RefObject<HTMLDivElement>}
