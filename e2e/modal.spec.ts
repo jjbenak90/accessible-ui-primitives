@@ -55,16 +55,17 @@ test.describe('Modal Primitive (WAI-ARIA APG & Deque axe-core)', () => {
     await expect(closeButton).toBeFocused();
 
     // Tab sequentially through dialog controls
-    await page.keyboard.press('Tab');
     const input = page.getByRole('textbox', { name: /target url/i });
+    const cancelButton = page.getByRole('button', { name: /cancel/i });
+    const submitButton = page.getByRole('button', { name: /start ingestion/i });
+
+    await page.keyboard.press('Tab');
     await expect(input).toBeFocused();
 
     await page.keyboard.press('Tab');
-    const cancelButton = page.getByRole('button', { name: /cancel/i });
     await expect(cancelButton).toBeFocused();
 
     await page.keyboard.press('Tab');
-    const submitButton = page.getByRole('button', { name: /start ingestion/i });
     await expect(submitButton).toBeFocused();
 
     // Forward wrap: Tab from last interactive element should cycle back to the first
@@ -76,7 +77,82 @@ test.describe('Modal Primitive (WAI-ARIA APG & Deque axe-core)', () => {
     await expect(submitButton).toBeFocused();
   });
 
-  test('dismisses on Escape key and deterministically restores focus to trigger', async ({ page }) => {
+  test('wraps backward to the last element when Shift+Tab is pressed directly from dialog container focus', async ({
+    page,
+  }) => {
+    const trigger = page.getByRole('button', { name: /open standard dialog/i });
+    await trigger.click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+
+    // Explicitly focus dialog container to test the activeElement === container branch
+    await dialog.focus();
+    await expect(dialog).toBeFocused();
+
+    // Shift+Tab from container must wrap to the last interactive element
+    await page.keyboard.press('Shift+Tab');
+    const submitButton = page.getByRole('button', { name: /start ingestion/i });
+    await expect(submitButton).toBeFocused();
+  });
+
+  test('rescues focus back into the dialog when the active element is removed from the DOM', async ({
+    page,
+  }) => {
+    const trigger = page.getByRole('button', { name: /open standard dialog/i });
+    await trigger.click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+
+    const cancelButton = page.getByRole('button', { name: /cancel/i });
+    await cancelButton.focus();
+    await expect(cancelButton).toBeFocused();
+
+    // Dynamically delete the active focused element
+    await page.evaluate(() => {
+      document.activeElement?.remove();
+    });
+
+    // Verify browser dropped focus to body
+    const activeTagName = await page.evaluate(() => document.activeElement?.tagName.toLowerCase());
+    expect(activeTagName).toBe('body');
+
+    // Next Tab press must be intercepted in capture phase and rescued to firstElement
+    await page.keyboard.press('Tab');
+    const closeButton = page.getByRole('button', { name: /close dialog/i });
+    await expect(closeButton).toBeFocused();
+  });
+
+  test('excludes disabled elements from boundary wrap calculations', async ({ page }) => {
+    const trigger = page.getByRole('button', { name: /open standard dialog/i });
+    await trigger.click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+
+    const cancelButton = page.getByRole('button', { name: /cancel/i });
+    const closeButton = page.getByRole('button', { name: /close dialog/i });
+
+    // In-place disable the last button (e.g., submitting state)
+    await page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll('button'));
+      const submitBtn = buttons.find((b) => b.textContent?.includes('Start Ingestion'));
+      if (submitBtn) submitBtn.disabled = true;
+    });
+
+    // Focus Cancel button (now the effective last interactive element)
+    await cancelButton.focus();
+    await expect(cancelButton).toBeFocused();
+
+    // Tabbing forward should skip the disabled button and wrap to Close button
+    await page.keyboard.press('Tab');
+    await expect(closeButton).toBeFocused();
+  });
+
+  test('dismisses on Escape key and deterministically restores focus to trigger', async ({
+    page,
+  }) => {
     const trigger = page.getByRole('button', { name: /open standard dialog/i });
     await trigger.click();
 
