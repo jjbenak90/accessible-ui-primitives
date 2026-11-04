@@ -91,14 +91,14 @@ export function useFocusTrap<T extends HTMLElement>(
       }
     };
 
-    container.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown, true);
 
     // Lock document scroll while trap is active
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
     return () => {
-      container.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown, true);
       document.body.style.overflow = originalOverflow;
     };
   }, [isOpen, initialFocusRef]);
