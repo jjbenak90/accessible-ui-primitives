@@ -36,6 +36,8 @@ interface ModalBaseProps {
   'aria-describedby'?: string;
   /** Dialog body content */
   children: React.ReactNode;
+  /** Optional boolean to indicate if scrolling should be locked */
+  lockScroll?: boolean;
   /** Optional element to receive focus upon opening instead of the first interactive target */
   initialFocusRef?: React.RefObject<HTMLElement | null>;
   /** Optional container style overrides */
