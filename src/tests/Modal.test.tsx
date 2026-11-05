@@ -206,5 +206,31 @@ describe('Modal Primitive', () => {
       const results = await axe(baseElement);
       expect(results).toHaveNoViolations();
     });
+
+    it('computes the correct accessible name when explicitLabelledBy is provided alongside a title', () => {
+      render(
+        <Modal
+          isOpen={true}
+          onClose={() => {}}
+          title="Settings & Privacy"
+          aria-labelledby="custom-title-id"
+        >
+          <p>Dialog body content</p>
+        </Modal>
+      );
+
+      // 1. Inspect what aria-labelledby is pointing to:
+      const dialog = screen.getByRole('dialog', { hidden: true });
+      expect(dialog.getAttribute('aria-labelledby')).toBe('custom-title-id');
+
+      // 2. Inspect the rendered heading in the original code:
+      const heading = screen.getByRole('heading', { level: 2 });
+
+      // 3. Assertheading.id is equal to the aria-labelledby value
+      expect(heading.id).toBe('custom-title-id');
+
+      // 4. Assert the dialog has the correct accessible name, which is the Modal's title
+      expect(screen.getByRole('dialog', { name: 'Settings & Privacy' })).toBeInTheDocument();
+    });
   });
 });

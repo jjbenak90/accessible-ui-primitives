@@ -1,33 +1,31 @@
-import React, { useEffect, useId, useRef } from "react";
-import { createPortal } from "react-dom";
+import React, { useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useInert } from '../../hooks/useInert';
-import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { useFocusReturn } from "../../hooks/useFocusReturn";
-import { type ModalProps } from "./Modal.types";
+import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { useFocusReturn } from '../../hooks/useFocusReturn';
+import { type ModalProps } from './Modal.types';
 
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
   title,
-  "aria-label": ariaLabel,
-  "aria-labelledby": explicitLabelledBy,
+  'aria-label': ariaLabel,
+  'aria-labelledby': explicitLabelledBy,
   description,
-  "aria-describedby": explicitDescribedBy,
+  'aria-describedby': explicitDescribedBy,
   children,
   initialFocusRef,
-  className = "",
+  className = '',
 }: ModalProps) => {
   const generatedTitleId = useId();
   const generatedDescId = useId();
   // Track whether the initial pointer down started directly on the backdrop
-  const isMouseDownOnBackdrop = useRef( false );
-  const backdropRef = useRef<HTMLDivElement>( null );
-  
+  const isMouseDownOnBackdrop = useRef(false);
+  const backdropRef = useRef<HTMLDivElement>(null);
+
   // Resolve provided explicit IDs vs auto-generated IDs
-  const effectiveTitleId =
-    explicitLabelledBy || (title ? generatedTitleId : undefined);
-  const effectiveDescId =
-    explicitDescribedBy || (description ? generatedDescId : undefined);
+  const effectiveTitleId = explicitLabelledBy || (title ? generatedTitleId : undefined);
+  const effectiveDescId = explicitDescribedBy || (description ? generatedDescId : undefined);
 
   // 1. Maintain focus boundary and restoration
   useFocusReturn(isOpen);
@@ -38,26 +36,26 @@ export const Modal: React.FC<ModalProps> = ({
     if (!isOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === 'Escape') {
         event.stopPropagation();
         onClose();
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
   // 3. Locks down #storybook-root, #root, and any sibling DOM nodes while open
-  useInert( isOpen, backdropRef );
-  
+  useInert(isOpen, backdropRef);
+
   // 4. Backdrop click dismissal: Only dismiss if both mousedown and mouseup occur on the backdrop
-  const handleBackdropMouseDown = ( e: React.MouseEvent<HTMLDivElement> ) => {
+  const handleBackdropMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     // Only flag true if the target is the backdrop container itself
     isMouseDownOnBackdrop.current = e.target === e.currentTarget;
   };
 
-  const handleBackdropMouseUp = ( e: React.MouseEvent<HTMLDivElement> ) => {
+  const handleBackdropMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
     // Dismiss only if BOTH mouseDown and mouseUp occurred directly on the backdrop
     if (isMouseDownOnBackdrop.current && e.target === e.currentTarget) {
       onClose();
@@ -71,7 +69,7 @@ export const Modal: React.FC<ModalProps> = ({
     <div
       ref={backdropRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      onMouseDown={ handleBackdropMouseDown }
+      onMouseDown={handleBackdropMouseDown}
       onMouseUp={handleBackdropMouseUp}
     >
       <div
@@ -87,7 +85,7 @@ export const Modal: React.FC<ModalProps> = ({
         <div className="flex items-start justify-between gap-4 border-b border-neutral-200 pb-3 dark:border-neutral-800">
           {title ? (
             <h2
-              id={generatedTitleId}
+              id={effectiveTitleId}
               className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50"
             >
               {title}
@@ -108,10 +106,7 @@ export const Modal: React.FC<ModalProps> = ({
         </div>
 
         {description && (
-          <p
-            id={generatedDescId}
-            className="mt-2 text-sm text-neutral-600 dark:text-neutral-400"
-          >
+          <p id={effectiveDescId} className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
             {description}
           </p>
         )}
@@ -119,6 +114,6 @@ export const Modal: React.FC<ModalProps> = ({
         <div className="mt-4">{children}</div>
       </div>
     </div>,
-    document.body,
+    document.body
   );
 };
