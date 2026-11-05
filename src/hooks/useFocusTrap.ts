@@ -1,6 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react';
 
-// Defines the W3C recommendation for elements that naturally or explicitly participate 
+// Defines the W3C recommendation for elements that naturally or explicitly participate
 // in sequential keyboard navigation (tab order)
 const FOCUSABLE_SELECTOR = [
   'a[href]:not([tabindex="-1"])',
@@ -10,9 +10,10 @@ const FOCUSABLE_SELECTOR = [
   'textarea:not([disabled]):not([tabindex="-1"])',
   'button:not([disabled]):not([tabindex="-1"])',
   'iframe:not([tabindex="-1"])',
+  'summary:not([tabindex="-1"])',
   '[tabindex]:not([tabindex="-1"])',
-  '[contentEditable=true]:not([tabindex="-1"])',
-].join( ', ' );
+  '[contenteditable]:not([contenteditable="false"]):not([tabindex="-1"])',
+].join(', ');
 
 /**
  * Validates element is actually rendered and not hidden via CSS.
@@ -20,8 +21,7 @@ const FOCUSABLE_SELECTOR = [
  */
 function isFocusableVisible(element: HTMLElement): boolean {
   return (
-    element.getClientRects().length > 0 &&
-    window.getComputedStyle(element).visibility !== 'hidden'
+    element.getClientRects().length > 0 && window.getComputedStyle(element).visibility !== 'hidden'
   );
 }
 
@@ -41,24 +41,27 @@ export function useFocusTrap<T extends HTMLElement>(
     if (!isOpen || !containerRef.current) return;
 
     const container = containerRef.current;
-    if ( !container ) return;
-    
+
     // Collect visible, non-disabled interactive targets
     const getFocusables = (): HTMLElement[] => {
-      return Array.from(
-        container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
-      ).filter(isFocusableVisible);
+      return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+        isFocusableVisible
+      );
     };
 
-    // Set initial focus: designated element -> first focusable child -> container
-    const focusables = getFocusables();
-    if (initialFocusRef?.current && isFocusableVisible(initialFocusRef.current)) {
-      initialFocusRef.current.focus();
-    } else if (focusables.length > 0) {
-      focusables[0].focus();
-    } else {
-      container.focus();
-    }
+    // Set initial focus inside requestAnimationFrame to ensure all child nodes are painted
+    const frameId = window.requestAnimationFrame(() => {
+      if (!containerRef.current) return;
+
+      const focusables = getFocusables();
+      if (initialFocusRef?.current && isFocusableVisible(initialFocusRef.current)) {
+        initialFocusRef.current.focus();
+      } else if (focusables.length > 0) {
+        focusables[0].focus();
+      } else {
+        container.focus();
+      }
+    });
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Tab') return;
@@ -78,13 +81,21 @@ export function useFocusTrap<T extends HTMLElement>(
 
       if (event.shiftKey) {
         // Shift + Tab: Wrap from first element to last
-        if (activeElement === firstElement || activeElement === container || !container.contains(activeElement)) {
+        if (
+          activeElement === firstElement ||
+          activeElement === container ||
+          !container.contains(activeElement)
+        ) {
           event.preventDefault();
           lastElement.focus();
         }
       } else {
         // Tab: Wrap from last element to first
-        if (activeElement === lastElement || activeElement === container || !container.contains(activeElement)) {
+        if (
+          activeElement === lastElement ||
+          activeElement === container ||
+          !container.contains(activeElement)
+        ) {
           event.preventDefault();
           firstElement.focus();
         }
@@ -93,13 +104,9 @@ export function useFocusTrap<T extends HTMLElement>(
 
     document.addEventListener('keydown', handleKeyDown, true);
 
-    // Lock document scroll while trap is active
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
     return () => {
+      window.cancelAnimationFrame(frameId);
       document.removeEventListener('keydown', handleKeyDown, true);
-      document.body.style.overflow = originalOverflow;
     };
   }, [isOpen, initialFocusRef]);
 
