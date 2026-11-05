@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { useState } from 'react';
 import { Modal } from '../components/Modal';
+import { _resetModalStackForTesting } from '../components/Modal/Modal';
 
 describe('Modal Primitive', () => {
   const defaultProps = {
@@ -50,6 +51,18 @@ describe('Modal Primitive', () => {
   });
 
   describe('Modal Dismissal', () => {
+    beforeEach(() => {
+      // Purge any lingering DOM elements from prior test portals
+      document.body.innerHTML = '';
+      _resetModalStackForTesting();
+    });
+
+    afterEach(() => {
+      cleanup();
+      document.body.innerHTML = '';
+      _resetModalStackForTesting();
+    });
+
     it('calls onClose when the close button is clicked', async () => {
       const user = userEvent.setup();
 
@@ -71,7 +84,7 @@ describe('Modal Primitive', () => {
       const user = userEvent.setup();
       render(
         <Modal {...defaultProps}>
-          <button type="button">Action</button>
+          <button type='button'>Action</button>
         </Modal>
       );
 
@@ -84,7 +97,7 @@ describe('Modal Primitive', () => {
 
       render(
         <Modal {...defaultProps}>
-          <button type="button">Inside Button</button>
+          <button type='button'>Inside Button</button>
         </Modal>
       );
 
@@ -97,6 +110,60 @@ describe('Modal Primitive', () => {
       const backdrop = dialog.parentElement as HTMLElement;
       await user.click(backdrop);
       expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('dismisses only the topmost modal when Escape is pressed on two nested modals', async () => {
+      const user = userEvent.setup();
+      const handleCloseParent = vi.fn();
+      const handleCloseChild = vi.fn();
+
+      render(
+        <Modal isOpen onClose={handleCloseParent} title='Parent Modal'>
+          <Modal isOpen onClose={handleCloseChild} title='Nested Modal'>
+            <button type='button'>Child Target</button>
+          </Modal>
+        </Modal>
+      );
+
+      // Wait for the nested modal to be rendered and focused in the DOM
+      const nestedDialog = await screen.findByRole('dialog', { name: 'Nested Modal' });
+      expect(nestedDialog).toBeInTheDocument();
+
+      // Now that child has focus, Escape will bubble through child's container
+      await user.keyboard('{Escape}');
+
+      // Only the top-most modal callback should be invoked
+      expect(handleCloseChild).toHaveBeenCalledTimes(1);
+      expect(handleCloseParent).not.toHaveBeenCalled();
+    });
+
+    it('dismisses only the topmost modal when Escape is pressed on three nested modals', async () => {
+      const user = userEvent.setup();
+      const handleCloseGrandparent = vi.fn();
+      const handleCloseParent = vi.fn();
+      const handleCloseChild = vi.fn();
+
+      render(
+        <Modal isOpen onClose={handleCloseGrandparent} title='Grandparent Modal'>
+          <Modal isOpen onClose={handleCloseParent} title='Parent Modal'>
+            <Modal isOpen onClose={handleCloseChild} title='Nested Modal'>
+              <button type='button'>Child Target</button>
+            </Modal>
+          </Modal>
+        </Modal>
+      );
+
+      // Wait for the nested modal to be rendered and focused in the DOM
+      const nestedDialog = await screen.findByRole('dialog', { name: 'Nested Modal' });
+      expect(nestedDialog).toBeInTheDocument();
+
+      // Now that child has focus, Escape will bubble through child's container
+      await user.keyboard('{Escape}');
+
+      // Only the top-most modal callback should be invoked
+      expect(handleCloseChild).toHaveBeenCalledTimes(1);
+      expect(handleCloseParent).not.toHaveBeenCalled();
+      expect(handleCloseGrandparent).not.toHaveBeenCalled();
     });
   });
 
@@ -121,8 +188,8 @@ describe('Modal Primitive', () => {
       const user = userEvent.setup();
       render(
         <Modal {...defaultProps}>
-          <button type="button">First Action</button>
-          <button type="button">Last Action</button>
+          <button type='button'>First Action</button>
+          <button type='button'>Last Action</button>
         </Modal>
       );
 
@@ -139,8 +206,8 @@ describe('Modal Primitive', () => {
       const user = userEvent.setup();
       render(
         <Modal {...defaultProps}>
-          <button type="button">Active Last</button>
-          <button type="button" disabled>
+          <button type='button'>Active Last</button>
+          <button type='button' disabled>
             Disabled Submission
           </button>
         </Modal>
@@ -163,9 +230,9 @@ describe('Modal Primitive', () => {
         const [showCancel, setShowCancel] = useState(true);
         return (
           <Modal {...defaultProps}>
-            <button type="button">Primary Action</button>
+            <button type='button'>Primary Action</button>
             {showCancel && (
-              <button type="button" onClick={() => setShowCancel(false)}>
+              <button type='button' onClick={() => setShowCancel(false)}>
                 Remove Me
               </button>
             )}
@@ -195,9 +262,9 @@ describe('Modal Primitive', () => {
       const { baseElement } = render(
         <Modal {...defaultProps}>
           <div>
-            <label htmlFor="modal-input">User Name</label>
-            <input id="modal-input" type="text" />
-            <button type="button">Save</button>
+            <label htmlFor='modal-input'>User Name</label>
+            <input id='modal-input' type='text' />
+            <button type='button'>Save</button>
           </div>
         </Modal>
       );
@@ -212,8 +279,8 @@ describe('Modal Primitive', () => {
         <Modal
           isOpen={true}
           onClose={() => {}}
-          title="Settings & Privacy"
-          aria-labelledby="custom-title-id"
+          title='Settings & Privacy'
+          aria-labelledby='custom-title-id'
         >
           <p>Dialog body content</p>
         </Modal>

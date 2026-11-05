@@ -4,7 +4,39 @@ import { useInert } from '../../hooks/useInert';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useFocusReturn } from '../../hooks/useFocusReturn';
 import { useScrollLock } from '../../hooks/useScrollLock';
-import { type ModalProps } from './Modal.types';
+import { type ModalProps, type ModalStackEntry } from './Modal.types';
+
+const modalStack: ModalStackEntry[] = [];
+
+const handleGlobalEscape = (event: KeyboardEvent) => {
+  if (event.key !== 'Escape' || modalStack.length === 0) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+
+  // 1. If focus is inside one of the modals, close that modal
+  // Searching from the end of the array backwards (LIFO):
+  for (let i = modalStack.length - 1; i >= 0; i--) {
+    const entry = modalStack[i];
+    if (
+      entry.container.contains(document.activeElement) ||
+      entry.backdrop.contains(document.activeElement)
+    ) {
+      entry.onClose();
+      return;
+    }
+  }
+
+  // 2. Fallback if focus is on body / hasn't settled yet:
+  // modalStack[0] is the leaf / nested child modal!
+  const deepestChildModal = modalStack[0];
+  deepestChildModal.onClose();
+};
+export const _resetModalStackForTesting = (): void => {
+  modalStack.length = 0;
+  document.removeEventListener('keydown', handleGlobalEscape, true);
+};
 
 export const Modal: React.FC<ModalProps> = ({
   isOpen,
@@ -40,25 +72,10 @@ export const Modal: React.FC<ModalProps> = ({
   useFocusReturn(isOpen);
   const containerRef = useFocusTrap<HTMLDivElement>(isOpen, initialFocusRef);
 
-  // 3. WAI-ARIA keyboard requirement: Escape dismisses dialog
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  // 4. Locks down #storybook-root, #root, and any sibling DOM nodes while open
+  // 3. Locks down #storybook-root, #root, and any sibling DOM nodes while open
   useInert(isOpen, backdropRef);
 
-  // 5. Backdrop click dismissal: Only dismiss if both mousedown and mouseup occur on the backdrop
+  // 4. Backdrop click dismissal: Only dismiss if both mousedown and mouseup occur on the backdrop
   const handleBackdropMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     // Only flag true if the target is the backdrop container itself
     isMouseDownOnBackdrop.current = e.target === e.currentTarget;
@@ -71,6 +88,43 @@ export const Modal: React.FC<ModalProps> = ({
     }
     isMouseDownOnBackdrop.current = false;
   };
+
+  // 5. Global Escape key dismissal: Only the topmost modal in the stack should respond to Escape
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  // Register with DOM-ordered stack on document
+  useEffect(() => {
+    const backdrop = backdropRef.current;
+    const container = containerRef.current;
+
+    // Narrow both out of `null`
+    if (!isOpen || !backdrop || !container) return;
+
+    if (modalStack.length === 0) {
+      document.addEventListener('keydown', handleGlobalEscape, true);
+    }
+
+    const entry: ModalStackEntry = {
+      backdrop,
+      container,
+      onClose: () => onCloseRef.current(),
+    };
+
+    modalStack.push(entry);
+
+    return () => {
+      const idx = modalStack.indexOf(entry);
+      if (idx !== -1) {
+        modalStack.splice(idx, 1);
+      }
+      if (modalStack.length === 0) {
+        document.removeEventListener('keydown', handleGlobalEscape, true);
+      }
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

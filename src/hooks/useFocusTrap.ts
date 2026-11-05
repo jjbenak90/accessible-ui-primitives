@@ -53,6 +53,18 @@ export function useFocusTrap<T extends HTMLElement>(
     const frameId = window.requestAnimationFrame(() => {
       if (!containerRef.current) return;
 
+      // Don't steal focus if focus is already inside this container
+      // OR if a child portal/dialog inside us already took focus!
+      if (
+        document.activeElement &&
+        document.activeElement !== document.body &&
+        document.activeElement !== document.documentElement &&
+        (containerRef.current.contains(document.activeElement) ||
+          document.querySelector('[role="dialog"]:last-of-type')?.contains(document.activeElement))
+      ) {
+        return;
+      }
+
       const focusables = getFocusables();
       if (initialFocusRef?.current && isFocusableVisible(initialFocusRef.current)) {
         initialFocusRef.current.focus();

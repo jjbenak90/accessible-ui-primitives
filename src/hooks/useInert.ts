@@ -1,18 +1,15 @@
 import { useEffect, type RefObject } from 'react';
 
-export const useInert = (
-  isOpen: boolean,
-  portalRef: RefObject<HTMLElement | null>
-): void => {
+export const useInert = (isOpen: boolean, portalRef: RefObject<HTMLElement | null>): void => {
   useEffect(() => {
     if (!isOpen || !portalRef.current || typeof document === 'undefined') return;
 
     const portalElement = portalRef.current;
-    
+
     // Find all other elements attached to document.body (like #root or #storybook-root)
     const siblings = Array.from(document.body.children).filter(
-      (el): el is HTMLElement => 
-        el !== portalElement && 
+      (el): el is HTMLElement =>
+        el !== portalElement &&
         el instanceof HTMLElement &&
         !['SCRIPT', 'STYLE'].includes(el.tagName)
     );

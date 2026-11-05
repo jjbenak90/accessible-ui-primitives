@@ -45,3 +45,9 @@ interface ModalBaseProps {
 }
 
 export type ModalProps = ModalBaseProps & ModalAccessibleNameProps;
+
+export interface ModalStackEntry {
+  backdrop: HTMLElement;
+  container: HTMLElement;
+  onClose: () => void;
+}
