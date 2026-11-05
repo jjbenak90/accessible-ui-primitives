@@ -82,7 +82,7 @@ export const Modal: React.FC<ModalProps> = ({
       onMouseUp={handleBackdropMouseUp}
     >
       <div
-        ref={containerRef as React.RefObject<HTMLDivElement>}
+        ref={containerRef}
         role='dialog'
         aria-modal='true'
         aria-labelledby={dialogLabelledBy}
@@ -91,16 +91,16 @@ export const Modal: React.FC<ModalProps> = ({
         tabIndex={-1}
         className={`relative w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 shadow-2xl focus:outline-none dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 ${className}`}
       >
-        <div className='flex items-start justify-between gap-4 border-b border-neutral-200 pb-3 dark:border-neutral-800'>
-          {title ? (
+        <div
+          className={`flex items-start ${title ? 'justify-between' : 'justify-end'} gap-4 border-b border-neutral-200 pb-3 dark:border-neutral-800`}
+        >
+          {title && (
             <h2
               id={headingId}
               className='text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50'
             >
               {title}
             </h2>
-          ) : (
-            <div />
           )}
           <button
             type='button'
