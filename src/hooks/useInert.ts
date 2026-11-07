@@ -11,7 +11,8 @@ export const useInert = (isOpen: boolean, portalRef: RefObject<HTMLElement | nul
       (el): el is HTMLElement =>
         el !== portalElement &&
         el instanceof HTMLElement &&
-        !['SCRIPT', 'STYLE'].includes(el.tagName)
+        !['SCRIPT', 'STYLE'].includes(el.tagName) &&
+        !el.querySelector('[role="dialog"]')
     );
 
     // Apply inert to completely freeze them from screen readers and pointers

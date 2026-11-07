@@ -28,11 +28,24 @@ const handleGlobalEscape = (event: KeyboardEvent) => {
     }
   }
 
-  // 2. Fallback if focus is on body / hasn't settled yet:
-  // modalStack[0] is the leaf / nested child modal!
-  const deepestChildModal = modalStack[0];
-  deepestChildModal.onClose();
+  // 2. Fallback: If focus is not inside a modal, find the topmost dialog in the DOM
+  const openDialogs = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"]'));
+  const topmostDialog = openDialogs[openDialogs.length - 1];
+
+  if (topmostDialog) {
+    const matchingEntry = modalStack.find(
+      (entry) => entry.container === topmostDialog || entry.container.contains(topmostDialog)
+    );
+    if (matchingEntry) {
+      matchingEntry.onClose();
+      return;
+    }
+  }
+
+  // 3. Last-resort fallback to top of stack
+  modalStack[modalStack.length - 1]?.onClose();
 };
+
 export const _resetModalStackForTesting = (): void => {
   modalStack.length = 0;
   document.removeEventListener('keydown', handleGlobalEscape, true);

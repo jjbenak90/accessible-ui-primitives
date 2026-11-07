@@ -127,7 +127,14 @@ describe('Modal Primitive', () => {
 
       // Wait for the nested modal to be rendered and focused in the DOM
       const nestedDialog = await screen.findByRole('dialog', { name: 'Nested Modal' });
-      expect(nestedDialog).toBeInTheDocument();
+
+      // Explicitly ensure the child target has focus, or check native containment:
+      const childTarget = await screen.findByRole('button', { name: 'Child Target' });
+      childTarget.focus();
+
+      await waitFor(() => {
+        expect(nestedDialog.contains(document.activeElement)).toBe(true);
+      });
 
       // Now that child has focus, Escape will bubble through child's container
       await user.keyboard('{Escape}');
@@ -155,7 +162,14 @@ describe('Modal Primitive', () => {
 
       // Wait for the nested modal to be rendered and focused in the DOM
       const nestedDialog = await screen.findByRole('dialog', { name: 'Nested Modal' });
-      expect(nestedDialog).toBeInTheDocument();
+
+      // Explicitly ensure the child target has focus, or check native containment:
+      const childTarget = await screen.findByRole('button', { name: 'Child Target' });
+      childTarget.focus();
+
+      await waitFor(() => {
+        expect(nestedDialog.contains(document.activeElement)).toBe(true);
+      });
 
       // Now that child has focus, Escape will bubble through child's container
       await user.keyboard('{Escape}');

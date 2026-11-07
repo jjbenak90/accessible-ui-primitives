@@ -36,9 +36,14 @@ export function useFocusTrap<T extends HTMLElement>(
   initialFocusRef?: RefObject<HTMLElement | null>
 ): RefObject<T | null> {
   const containerRef = useRef<T | null>(null);
+  const hasFocusedRef = useRef(false);
 
   useEffect(() => {
-    if (!isOpen || !containerRef.current) return;
+    if (!isOpen) {
+      hasFocusedRef.current = false;
+      return;
+    }
+    if (!containerRef.current) return;
 
     const container = containerRef.current;
 
@@ -49,31 +54,51 @@ export function useFocusTrap<T extends HTMLElement>(
       );
     };
 
-    // Set initial focus inside requestAnimationFrame to ensure all child nodes are painted
-    const frameId = window.requestAnimationFrame(() => {
-      if (!containerRef.current) return;
+    // Defer initial focus via requestAnimationFrame to:
+    // 1. Ensure portaled DOM nodes, transitions, and layout geometry are painted.
+    // 2. Allow nested child modals mounting in the same tick to mount, paint,
+    //    and claim focus first (preventing parent traps from stealing focus).
+    // 3. Give manual autofocus or consumer focusin handlers a tick to cancel
+    //    this frame before the fallback sequence runs.
+    let frameId: number | null = null;
+    if (!hasFocusedRef.current) {
+      frameId = window.requestAnimationFrame(() => {
+        if (!containerRef.current || hasFocusedRef.current) return;
+        hasFocusedRef.current = true;
+        // Don't steal focus if focus is already inside this container
+        // OR if a child portal/dialog inside us already took focus!
+        if (
+          document.activeElement &&
+          document.activeElement !== document.body &&
+          document.activeElement !== document.documentElement &&
+          (containerRef.current.contains(document.activeElement) ||
+            document
+              .querySelector('[role="dialog"]:last-of-type')
+              ?.contains(document.activeElement))
+        ) {
+          return;
+        }
 
-      // Don't steal focus if focus is already inside this container
-      // OR if a child portal/dialog inside us already took focus!
-      if (
-        document.activeElement &&
-        document.activeElement !== document.body &&
-        document.activeElement !== document.documentElement &&
-        (containerRef.current.contains(document.activeElement) ||
-          document.querySelector('[role="dialog"]:last-of-type')?.contains(document.activeElement))
-      ) {
-        return;
-      }
+        const focusables = getFocusables();
+        if (initialFocusRef?.current && isFocusableVisible(initialFocusRef.current)) {
+          initialFocusRef.current.focus();
+        } else if (focusables.length > 0) {
+          focusables[0].focus();
+        } else {
+          container.focus();
+        }
+      });
+    }
 
-      const focusables = getFocusables();
-      if (initialFocusRef?.current && isFocusableVisible(initialFocusRef.current)) {
-        initialFocusRef.current.focus();
-      } else if (focusables.length > 0) {
-        focusables[0].focus();
-      } else {
-        container.focus();
+    const handleFocusIn = () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+        frameId = null;
       }
-    });
+      hasFocusedRef.current = true;
+    };
+
+    container.addEventListener('focusin', handleFocusIn);
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Tab') return;
@@ -117,10 +142,11 @@ export function useFocusTrap<T extends HTMLElement>(
     document.addEventListener('keydown', handleKeyDown, true);
 
     return () => {
-      window.cancelAnimationFrame(frameId);
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+      document.removeEventListener('focusin', handleFocusIn);
       document.removeEventListener('keydown', handleKeyDown, true);
     };
-  }, [isOpen, initialFocusRef]);
+  }, [isOpen]);
 
   return containerRef;
 }
