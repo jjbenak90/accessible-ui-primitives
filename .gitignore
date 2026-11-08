@@ -28,3 +28,4 @@ playwright-report/
 *.sln
 *.sw?
 
+repomix-output.xml
